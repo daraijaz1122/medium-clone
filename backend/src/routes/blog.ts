@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client/edge';
 import { withAccelerate } from '@prisma/extension-accelerate';
 import { sign,verify } from 'hono/jwt';
 import {app} from "../index"
+import { createBlogInput, updateBlogInput } from "@aijaz999/medium-common";
 export const blogRouter =new Hono<{
   Bindings: {
     DATABASE_URL: string,
@@ -12,10 +13,11 @@ export const blogRouter =new Hono<{
         userId:string
     }
 }>();
-
+//auth middleware
 blogRouter.use("*", async (c, next) => {
     const header = c.req.header("Authorization") || "";
-    const response = await verify(header, c.env.JWT_SECRET)
+    try {
+       const response = await verify(header, c.env.JWT_SECRET)
     if (response) {
         //@ts-ignore
     c.set("userId",response.Id)
@@ -24,13 +26,25 @@ blogRouter.use("*", async (c, next) => {
     c.status(403)
     return c.json({error:"unauthorized"}) 
   }
+     } catch (e) {
+        c.status(403)
+    return c.json({error:"unauthorized"}) 
+    }
+   
 })
+
+//create blog
 blogRouter.post('/', async (c) => {
  const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
  }).$extends(withAccelerate())
     const userId = c.get("userId")
     const body = await c.req.json();
+    const { success } = createBlogInput.safeParse(body);
+    if (!success) {
+        c.status(411)
+        return c.json({message:"Invalid inputs"})
+    }
     try {
         const blog = await prisma.post.create({
             data: {
@@ -50,9 +64,10 @@ blogRouter.post('/', async (c) => {
         return c.json("Blog creation failed")
     }
 })
+
+//get single blog
 blogRouter.get('/', async(c) => {
     const id = c.req.query("id")
-    console.log(id)
      const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
      }).$extends(withAccelerate())
@@ -69,13 +84,19 @@ blogRouter.get('/', async(c) => {
     }
     
 })
+
+//update blog
 blogRouter.put('/', async (c) => {
     const userId = c.get("userId")
     const body = await c.req.json();
    const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
      }).$extends(withAccelerate())
-  
+    const { success } = updateBlogInput.safeParse(body);
+    if (!success) {
+        c.status(411)
+        return c.json({message:"Invalid Inputs"})
+    }
     const updatedPost = await prisma.post.update({
         where: {
             id: body.id,
@@ -88,6 +109,8 @@ blogRouter.put('/', async (c) => {
     });
     return c.json('post updated')
 })
+
+//get all blogs
 blogRouter.get("/all", async (c) => {
     const prisma = new PrismaClient({
         datasourceUrl: c.env.DATABASE_URL,
@@ -96,3 +119,5 @@ blogRouter.get("/all", async (c) => {
     const posts = await prisma.post.findMany()
     return c.json(posts)
 })
+
+//changed_to_production_jwt_secret
