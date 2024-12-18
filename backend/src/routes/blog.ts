@@ -64,10 +64,30 @@ blogRouter.post('/', async (c) => {
         return c.json("Blog creation failed")
     }
 })
+//get all blogs
+blogRouter.get("/all/blogs", async (c) => {
+    const prisma = new PrismaClient({
+        datasourceUrl: c.env.DATABASE_URL,
+        }).$extends(withAccelerate())
+    
+    const posts = await prisma.post.findMany({
+        select: {
+            content: true,
+            title: true,
+            id: true,
+            author: {
+                select: {
+                    name:true
+                }
+            }
+        }
+    })
+    return c.json({posts})
+})
 
 //get single blog
-blogRouter.get('/', async(c) => {
-    const id = c.req.query("id")
+blogRouter.get('/:id', async(c) => {
+    const id = c.req.param("id")
      const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
      }).$extends(withAccelerate())
@@ -75,12 +95,22 @@ blogRouter.get('/', async(c) => {
         const post = await prisma.post.findUnique({
         where: {
             id
-        }
+            },
+            select: {
+                id: true,
+                title: true,
+                content: true,
+                author: {
+                    select: {
+                        name:true
+                    }
+                }
+            }
     })
-    return c.json(post);
+    return c.json({post});
     } catch (e) {
-        c.status(500);
-        return c.json("not found")
+        c.status(411);
+        return c.json("Error while fetching")
     }
     
 })
@@ -110,14 +140,6 @@ blogRouter.put('/', async (c) => {
     return c.json('post updated')
 })
 
-//get all blogs
-blogRouter.get("/all", async (c) => {
-    const prisma = new PrismaClient({
-        datasourceUrl: c.env.DATABASE_URL,
-        }).$extends(withAccelerate())
-    
-    const posts = await prisma.post.findMany()
-    return c.json(posts)
-})
+
 
 //changed_to_production_jwt_secret
