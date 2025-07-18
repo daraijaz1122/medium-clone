@@ -80,7 +80,10 @@ blogRouter.get("/all/blogs", async (c) => {
                     name:true
                 }
             }
-        }
+        },
+        orderBy: [
+             {id:"desc"}
+        ]
     })
     return c.json({posts})
 })
